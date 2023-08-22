@@ -1,0 +1,228 @@
+# GitLab with Let's Encrypt Using Docker Compose
+
+# The complete installation guide is available on my https://www.heyvaldemar.com/install-gitlab-using-docker-compose/
+
+# Change variables in the `.env` to meet your requirements.
+# Note that the `.env` file should be in the same directory as `gitlab-traefik-letsencrypt-docker-compose.yml`.
+
+# Create networks for your services before deploying the configuration using the commands:
+# `docker network create traefik-network`
+# `docker network create gitlab-network`
+
+# Deploy GitLab using Docker Compose:
+# `docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d`
+
+# Get the GitLab Runner's registration token via this link:
+# `https://gitlab.heyvaldemar.net/admin/runners`
+# Note that you need to specify the domain name of the service, previously defined in the `.env` file.
+
+# Register the GitLab Runner with an obtained token:
+# ```
+# REGISTRATION_TOKEN=125DGwcgyrAsVVjUkxTL \
+# && docker exec -it $(sudo docker ps -aqf "name=gitlab-runner-1") gitlab-runner register \
+# --non-interactive \
+# --url "http://gitlab/" \
+# --registration-token "$REGISTRATION_TOKEN" \
+# --executor "docker" \
+# --docker-image docker:stable \
+# --description "docker-runner-1" \
+# --tag-list "docker,linux" \
+# --run-untagged="true" \
+# --docker-privileged \
+# --output-limit "50000000" \
+# --access-level="not_protected" \
+# --docker-volumes "/var/run/docker.sock:/var/run/docker.sock"
+# ```
+
+# Author
+# I’m Vladimir Mikhalev, the Docker Captain, but my friends can call me Valdemar.
+# https://www.docker.com/captains/vladimir-mikhalev/
+
+# My website with detailed IT guides: https://www.heyvaldemar.com/
+# Follow me on YouTube: https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1
+# Follow me on Twitter: https://twitter.com/heyValdemar
+# Follow me on Instagram: https://www.instagram.com/heyvaldemar/
+# Follow me on Threads: https://www.threads.net/@heyvaldemar
+# Follow me on Mastodon: https://hachyderm.io/@heyValdemar
+# Follow me on Bluesky: https://bsky.app/profile/heyvaldemar.bsky.social
+# Follow me on Facebook: https://www.facebook.com/heyValdemarFB/
+# Follow me on TikTok: https://www.tiktok.com/@heyvaldemar
+# Follow me on LinkedIn: https://www.linkedin.com/in/heyvaldemar/
+# Follow me on GitHub: https://github.com/heyvaldemar
+
+# Communication
+# Chat with IT pros on Discord: https://discord.gg/AJQGCCBcqf
+# Reach me at ask@sre.gg
+
+# Give Thanks
+# Support on GitHub: https://github.com/sponsors/heyValdemar
+# Support on Patreon: https://www.patreon.com/heyValdemar
+# Support on BuyMeaCoffee: https://www.buymeacoffee.com/heyValdemar
+# Support on Ko-fi: https://ko-fi.com/heyValdemar
+# Support on PayPal: https://www.paypal.com/paypalme/heyValdemarCOM
+
+networks:
+  gitlab-network:
+    external: true
+  traefik-network:
+    external: true
+
+volumes:
+  gitlab-data:
+  gitlab-logs:
+  gitlab-config:
+  gitlab-runner-config:
+  gitlab-postgres:
+  traefik-certificates:
+
+services:
+  postgres:
+    image: ${GITLAB_POSTGRES_IMAGE_TAG}
+    volumes:
+      - gitlab-postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${GITLAB_DB_NAME}
+      POSTGRES_USER: ${GITLAB_DB_USER}
+      POSTGRES_PASSWORD: ${GITLAB_DB_PASSWORD}
+    networks:
+      - gitlab-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  gitlab:
+    image: ${GITLAB_IMAGE_TAG}
+    volumes:
+      - gitlab-data:/var/opt/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-config:/etc/gitlab
+    shm_size: "256m"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url '${GITLAB_URL}'
+        gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SHELL_SSH_PORT}
+        nginx['enable'] = true
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+        nginx['proxy_set_headers'] = {
+                'X-Forwarded-Proto' => 'https',
+                'X-Forwarded-Ssl' => 'on'
+        }
+        gitlab_rails['db_adapter'] = "${GITLAB_DB_TYPE}"
+        gitlab_rails['db_encoding'] = "unicode"
+        gitlab_rails['db_host'] = "postgres"
+        gitlab_rails['db_database'] = "${GITLAB_DB_NAME}"
+        gitlab_rails['db_username'] = "${GITLAB_DB_USER}"
+        gitlab_rails['db_password'] = "${GITLAB_DB_PASSWORD}"
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "${GITLAB_SMTP_ADDRESS}"
+        gitlab_rails['smtp_port'] = 587
+        gitlab_rails['smtp_user_name'] = "${GITLAB_SMTP_USER_NAME}"
+        gitlab_rails['smtp_password'] = "${GITLAB_SMTP_PASSWORD}"
+        gitlab_rails['smtp_domain'] = "${GITLAB_SMTP_ADDRESS}"
+        gitlab_rails['smtp_authentication'] = "login"
+        gitlab_rails['smtp_enable_starttls_auto'] = true
+        gitlab_rails['smtp_tls'] = false
+        gitlab_rails['gitlab_email_from'] = "${GITLAB_EMAIL_FROM}"
+        gitlab_rails['gitlab_email_reply_to'] = "${GITLAB_EMAIL_REPLY_TO}"
+        postgresql['enable'] = false
+        registry['enable'] = false
+    networks:
+      - gitlab-network
+      - traefik-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 240s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitlab.rule=Host(`${GITLAB_HOSTNAME}`)"
+      - "traefik.http.routers.gitlab.service=gitlab"
+      - "traefik.http.routers.gitlab.entrypoints=websecure"
+      - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+      - "traefik.http.routers.gitlab.tls=true"
+      - "traefik.http.routers.gitlab.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gitlab.loadbalancer.passhostheader=true"
+      - "traefik.http.routers.gitlab.middlewares=compresstraefik"
+      - "traefik.http.middlewares.compresstraefik.compress=true"
+      - "traefik.tcp.routers.gitlab-ssh.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.gitlab-ssh.service=gitlab-ssh"
+      - "traefik.tcp.routers.gitlab-ssh.entrypoints=ssh"
+      - "traefik.tcp.services.gitlab-ssh.loadbalancer.server.port=22"
+      - "traefik.docker.network=traefik-network"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      traefik:
+        condition: service_healthy
+
+  gitlab-runner-1:
+    image: ${GITLAB_RUNNER_IMAGE_TAG}
+    volumes:
+      - gitlab-runner-config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gitlab-network
+    restart: unless-stopped
+
+  traefik:
+    image: ${TRAEFIK_IMAGE_TAG}
+    command:
+      - "--log.level=${TRAEFIK_LOG_LEVEL}"
+      - "--accesslog=true"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--ping=true"
+      - "--ping.entrypoint=ping"
+      - "--entryPoints.ping.address=:8082"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
+      - "--entryPoints.ssh.address=:${GITLAB_SHELL_SSH_PORT}"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.exposedByDefault=false"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.buckets=0.1,0.3,1.2,5.0"
+      - "--global.checkNewVersion=true"
+      - "--global.sendAnonymousUsage=false"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - traefik-certificates:/etc/traefik/acme
+    networks:
+      - traefik-network
+    ports:
+      - "${GITLAB_SHELL_SSH_PORT}:${GITLAB_SHELL_SSH_PORT}"
+      - "80:80"
+      - "443:443"
+    healthcheck:
+      test: ["CMD", "wget", "http://localhost:8082/ping","--spider"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.services.dashboard.loadbalancer.passhostheader=true"
+      - "traefik.http.routers.dashboard.middlewares=authtraefik"
+      - "traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_BASIC_AUTH}"
+      - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.entrypoints=web"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    restart: unless-stopped
