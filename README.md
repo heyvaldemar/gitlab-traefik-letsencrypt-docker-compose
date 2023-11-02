@@ -12,7 +12,7 @@ Create networks for your services before deploying the configuration using the c
 
 `docker network create gitlab-network`
 
-Deploy gitlab using Docker Compose:
+Deploy GitLab using Docker Compose:
 
 `docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d`
 
