@@ -1,66 +1,3 @@
-# GitLab with Let's Encrypt Using Docker Compose
-
-# The complete installation guide is available on my website https://www.heyvaldemar.com/install-gitlab-using-docker-compose/
-
-# Change variables in the `.env` to meet your requirements.
-# Note that the `.env` file should be in the same directory as `gitlab-traefik-letsencrypt-docker-compose.yml`.
-
-# Create networks for your services before deploying the configuration using the commands:
-# `docker network create traefik-network`
-# `docker network create gitlab-network`
-
-# Deploy GitLab using Docker Compose:
-# `docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d`
-
-# Get the GitLab Runner's registration token via this link:
-# `https://gitlab.heyvaldemar.net/admin/runners`
-# Note that you need to specify the domain name of the service, previously defined in the `.env` file.
-
-# Register the GitLab Runner with an obtained token:
-# ```
-# REGISTRATION_TOKEN=125DGwcgyrAsVVjUkxTL \
-# && docker exec -it $(sudo docker ps -aqf "name=gitlab-runner-1") gitlab-runner register \
-# --non-interactive \
-# --url "http://gitlab/" \
-# --registration-token "$REGISTRATION_TOKEN" \
-# --executor "docker" \
-# --docker-image docker:stable \
-# --description "docker-runner-1" \
-# --tag-list "docker,linux" \
-# --run-untagged="true" \
-# --docker-privileged \
-# --output-limit "50000000" \
-# --access-level="not_protected" \
-# --docker-volumes "/var/run/docker.sock:/var/run/docker.sock"
-# ```
-
-# Author
-# I’m Vladimir Mikhalev, the Docker Captain, but my friends can call me Valdemar.
-# https://www.docker.com/captains/vladimir-mikhalev/
-
-# My website with detailed IT guides: https://www.heyvaldemar.com/
-# Follow me on YouTube: https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1
-# Follow me on Twitter: https://twitter.com/heyValdemar
-# Follow me on Instagram: https://www.instagram.com/heyvaldemar/
-# Follow me on Threads: https://www.threads.net/@heyvaldemar
-# Follow me on Mastodon: https://mastodon.social/@heyvaldemar
-# Follow me on Bluesky: https://bsky.app/profile/heyvaldemar.bsky.social
-# Follow me on Facebook: https://www.facebook.com/heyValdemarFB/
-# Follow me on TikTok: https://www.tiktok.com/@heyvaldemar
-# Follow me on LinkedIn: https://www.linkedin.com/in/heyvaldemar/
-# Follow me on GitHub: https://github.com/heyvaldemar
-
-# Communication
-# Chat with IT pros on Discord: https://discord.gg/AJQGCCBcqf
-# Reach me at ask@sre.gg
-
-# Give Thanks
-# Support on GitHub: https://github.com/sponsors/heyValdemar
-# Support on Patreon: https://www.patreon.com/heyValdemar
-# Support on BuyMeaCoffee: https://www.buymeacoffee.com/heyValdemar
-# Support on Ko-fi: https://ko-fi.com/heyValdemar
-# Support on PayPal: https://www.paypal.com/paypalme/heyValdemarCOM
-
 networks:
   gitlab-network:
     external: true
@@ -141,20 +78,35 @@ services:
       retries: 3
       start_period: 240s
     labels:
+      # Enable Traefik for this container
       - "traefik.enable=true"
+      # Match incoming requests on a specific hostname
       - "traefik.http.routers.gitlab.rule=Host(`${GITLAB_HOSTNAME}`)"
+      # Assign the router to a named Traefik service
       - "traefik.http.routers.gitlab.service=gitlab"
+      # Use the 'websecure' (HTTPS) entry point
       - "traefik.http.routers.gitlab.entrypoints=websecure"
+      # Define the internal container port for routing
       - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+      # Enable TLS on this router
       - "traefik.http.routers.gitlab.tls=true"
+      # Use Let's Encrypt for certificate management
       - "traefik.http.routers.gitlab.tls.certresolver=letsencrypt"
+      # Pass the original Host header to the container
       - "traefik.http.services.gitlab.loadbalancer.passhostheader=true"
+      # Apply a compression middleware
       - "traefik.http.routers.gitlab.middlewares=compresstraefik"
+      # Define settings for the compression middleware
       - "traefik.http.middlewares.compresstraefik.compress=true"
+      # Define TCP router rules for GitLab to match all incoming requests (HostSNI)
       - "traefik.tcp.routers.gitlab-ssh.rule=HostSNI(`*`)"
+      # Assign the GitLab router to a named Traefik service
       - "traefik.tcp.routers.gitlab-ssh.service=gitlab-ssh"
+      # Use the 'GitLab' (custom) entry point
       - "traefik.tcp.routers.gitlab-ssh.entrypoints=ssh"
+      # Define the internal container port for routing to the gitlab service
       - "traefik.tcp.services.gitlab-ssh.loadbalancer.server.port=22"
+      # Specify which Docker network Traefik should use for routing
       - "traefik.docker.network=traefik-network"
     restart: unless-stopped
     depends_on:
@@ -175,28 +127,44 @@ services:
   traefik:
     image: ${TRAEFIK_IMAGE_TAG}
     command:
+      # Set the log level (DEBUG, INFO, WARN, ERROR)
       - "--log.level=${TRAEFIK_LOG_LEVEL}"
-      - "--accesslog=true"
+      # Enable the built-in API and web-based dashboard on /dashboard
       - "--api.dashboard=true"
-      - "--api.insecure=true"
+      # Enable the /ping endpoint so we can health-check Traefik
       - "--ping=true"
+      # Assign the /ping endpoint to a dedicated entry point on port 8082
       - "--ping.entrypoint=ping"
-      - "--entryPoints.ping.address=:8082"
-      - "--entryPoints.web.address=:80"
-      - "--entryPoints.websecure.address=:443"
+      - "--entrypoints.ping.address=:8082"
+      # Define the primary HTTP entry point on port 80
+      - "--entrypoints.web.address=:80"
+      # Define the secure (HTTPS) entry point on port 443
+      - "--entrypoints.websecure.address=:443"
+      # Define the SSH entry point using an environment variable for the port
       - "--entryPoints.ssh.address=:${GITLAB_SHELL_SSH_PORT}"
+      # Enable the Docker provider to detect containers and their labels
       - "--providers.docker=true"
+      # Point Traefik to the Docker socket
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
-      - "--providers.docker.exposedByDefault=false"
+      # Prevent automatic exposure of all containers; only expose containers
+      # with "traefik.enable=true"
+      - "--providers.docker.exposedbydefault=false"
+      # Use ACME (Let's Encrypt) to generate/renew certificates via TLS challenge
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      # The email address used by Let's Encrypt for renewal notices
       - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      # The file where ACME certificates are stored inside the container
       - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
+      # Enable Prometheus metrics
       - "--metrics.prometheus=true"
+      # Configure Prometheus histogram buckets
       - "--metrics.prometheus.buckets=0.1,0.3,1.2,5.0"
-      - "--global.checkNewVersion=true"
-      - "--global.sendAnonymousUsage=false"
+      # Check for newer Traefik versions and optionally log that info
+      - "--global.checknewversion=true"
+      # Disable sending anonymous usage data to the Traefik maintainers
+      - "--global.sendanonymoususage=false"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-certificates:/etc/traefik/acme
     networks:
       - traefik-network
@@ -211,16 +179,22 @@ services:
       retries: 3
       start_period: 5s
     labels:
+      # Enable Traefik for this container.
       - "traefik.enable=true"
+      # A router to expose the Traefik dashboard
       - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_HOSTNAME}`)"
-      - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
-      - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.services.dashboard.loadbalancer.passhostheader=true"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      # asic Authentication for the Traefik dashboard
       - "traefik.http.routers.dashboard.middlewares=authtraefik"
       - "traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_BASIC_AUTH}"
+      # Specify the internal server port to the dashboard service
+      - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
+      # Pass the original Host header to the backend
+      - "traefik.http.services.dashboard.loadbalancer.passhostheader=true"
+      # HTTP -> HTTPS redirect for all hosts
       - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
       - "traefik.http.routers.http-catchall.entrypoints=web"
       - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
