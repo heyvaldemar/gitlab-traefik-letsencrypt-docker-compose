@@ -1,132 +1,200 @@
-# GitLab with Let's Encrypt Using Docker Compose
+# GitLab + Traefik + Let's Encrypt — Docker Compose
 
-[![Deployment Verification](https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/actions/workflows/00-deployment-verification.yml/badge.svg)](https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/actions)
+[![Deployment Verification](https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The badge displayed on my repository indicates the status of the deployment verification workflow as executed on the latest commit to the main branch.
+## Contents
 
-**Passing**: This means the most recent commit has successfully passed all deployment checks, confirming that the Docker Compose setup functions correctly as designed.
+- [Why this stack?](#why-this-stack)
+- [Prerequisites](#prerequisites)
+- [Getting started](#getting-started)
+- [Features](#features)
+  - [Typical use cases](#typical-use-cases)
+- [Registering the runner](#registering-the-runner)
+- [Email (SMTP)](#email-smtp)
+- [Supply chain trust](#supply-chain-trust)
+- [Production checklist](#production-checklist)
+- [Upgrading an existing deployment](#upgrading-an-existing-deployment)
+- [Testing](#testing)
+- [Security Notes](#security-notes)
+- [About the maintainer](#about-the-maintainer)
 
-📙 The complete installation guide is available on my [website](https://www.heyvaldemar.com/install-gitlab-using-docker-compose/).
+This repository deploys **GitLab EE** (free tier) behind **Traefik** with automatic **Let's Encrypt TLS**, backed by an external **PostgreSQL 17**, with git-over-SSH routed through a dedicated Traefik TCP entrypoint and a **GitLab Runner** container ready to register. One `docker compose up` away from a complete DevOps platform at `https://your-domain`.
 
-❗ Change variables in the `.env` to meet your requirements.
+📙 Full narrative installation guide on the blog: [heyvaldemar.com/install-gitlab-using-docker-compose/](https://www.heyvaldemar.com/install-gitlab-using-docker-compose/).
 
-💡 Note that the `.env` file should be in the same directory as `gitlab-traefik-letsencrypt-docker-compose.yml`.
+## Why this stack?
 
-Create networks for your services before deploying the configuration using the commands:
+| Need | This stack | Manual omnibus install | Kubernetes (Helm) | Other compose examples |
+|------|-----------|------------------------|-------------------|------------------------|
+| Ready to deploy in <15 min | ✅ | ❌ | ✅ if K8s is already running | Often |
+| TLS via Let's Encrypt, auto-renewed | ✅ Traefik ACME built-in | Manual | Via cert-manager | Rare |
+| External PostgreSQL (not the bundled one) | ✅ swappable, backupable | Bundled | ✅ | Rare |
+| Git-over-SSH through the proxy | ✅ Traefik TCP entrypoint | Host port 22 juggling | Service/LB config | Rare |
+| Runner container included | ✅ | Separate install | ✅ | Varies |
+| Upstream images pinned by `sha256` digest | ✅ | N/A | Depends | Rare |
+| Weekly pin-freshness check in CI | ✅ | N/A | Depends | Rare |
+| CI-verified deployment on every push | ✅ boots + migrates + serves | N/A | Varies | Almost never (too heavy) |
+| Credentials via env (never committed) | ✅ | N/A | K8s Secrets | Often committed plaintext |
 
-`docker network create traefik-network`
+Four moving parts (Traefik + GitLab + Postgres + runner). Heavy by nature — GitLab is a platform — but with no Kubernetes prerequisites and no manual certificate management.
 
-`docker network create gitlab-network`
+## Prerequisites
 
-Deploy GitLab using Docker Compose:
+Before you start, you need:
 
-`docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d`
+- **A Linux server** with a public IP and **at least 4 GB RAM + 4 CPU cores** (GitLab's own minimum; 8 GB is comfortable). Tested on Ubuntu 22.04 LTS+ and Debian 12+.
+- **Docker Engine 24+ and Docker Compose 2.20+.**
+- **A domain you control,** with two `A` records pointing at your server's public IP — one for GitLab (e.g. `gitlab.example.com`), one for the Traefik dashboard. DNS must propagate before deploy.
+- **Ports 80, 443, and 2222 open** — 2222 carries git-over-SSH (configurable via `GITLAB_SHELL_SSH_PORT`).
+- **Disk sized for repositories, artifacts, and the database** — 20 GB is a floor, not a recommendation.
 
-Visit the GitLab URL, and sign in with the username `root` and the password from the following command:
+## Getting started
 
-`sudo docker exec -it $(sudo docker ps -aqf "name=gitlab-gitlab-1") grep 'Password:' /etc/gitlab/initial_root_password`
+```bash
+# 1. Clone
+git clone https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose
+cd gitlab-traefik-letsencrypt-docker-compose
 
-Get the GitLab Runner's registration token via this link:
+# 2. Create the two Docker networks the stack expects
+docker network create traefik-network
+docker network create gitlab-network
 
-`https://gitlab.heyvaldemar.net/admin/runners`
+# 3. Copy the environment template and fill in required values
+cp .env.example .env
+$EDITOR .env
+# ^ Required: GITLAB_DB_PASSWORD, GITLAB_HOSTNAME, GITLAB_URL,
+#   TRAEFIK_HOSTNAME, TRAEFIK_ACME_EMAIL, TRAEFIK_BASIC_AUTH.
 
-Note that you need to specify the domain name of the service, previously defined in the `.env` file.
-
-Register the GitLab Runner with an obtained token:
-
+# 4. Deploy
+docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d
 ```
-REGISTRATION_TOKEN=125DGwcgyrAsVVjUkxTL \
-&& docker exec -it $(sudo docker ps -aqf "name=gitlab-runner-1") gitlab-runner register \
---non-interactive \
---url "http://gitlab/" \
---registration-token "$REGISTRATION_TOKEN" \
---executor "docker" \
---docker-image docker:stable \
---description "docker-runner-1" \
---tag-list "docker,linux" \
---run-untagged="true" \
---docker-privileged \
---output-limit "50000000" \
---access-level="not_protected" \
---docker-volumes "/var/run/docker.sock:/var/run/docker.sock"
+
+First boot runs GitLab's full reconfigure and database migrations — expect **5–10 minutes** before `https://${GITLAB_HOSTNAME}` serves the sign-in page. Then read the generated root password (valid 24 hours — change it right away):
+
+```bash
+docker compose -p gitlab exec gitlab cat /etc/gitlab/initial_root_password
 ```
 
-## Author
+### What success looks like
 
-hey everyone,
+```bash
+# GitLab turns healthy after migrations complete:
+docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab ps
 
-💾 I’ve been in the IT game for over 20 years, cutting my teeth with some big names like [IBM](https://www.linkedin.com/in/heyvaldemar/), [Thales](https://www.linkedin.com/in/heyvaldemar/), and [Amazon](https://www.linkedin.com/in/heyvaldemar/). These days, I wear the hat of a DevOps Consultant and Team Lead, but what really gets me going is Docker and container technology - I’m kind of obsessed!
+# Sign-in page answers:
+curl -fsSL -o /dev/null -w "%{http_code}\n" "https://${GITLAB_HOSTNAME}/users/sign_in"
+# Expected: 200
 
-💛 I have my own IT [blog](https://www.heyvaldemar.com/), where I’ve built a [community](https://discord.gg/AJQGCCBcqf) of DevOps enthusiasts who share my love for all things Docker, containers, and IT technologies in general. And to make sure everyone can jump on this awesome DevOps train, I write super detailed guides (seriously, they’re foolproof!) that help even newbies deploy and manage complex IT solutions.
+# Readiness probe:
+curl -fsS "https://${GITLAB_HOSTNAME}/-/readiness?all=1"
 
-🚀 My dream is to empower every single person in the DevOps community to squeeze every last drop of potential out of Docker and container tech.
+# Traefik issued a certificate:
+docker compose -p gitlab logs traefik | grep -i "adding certificate"
+```
 
-🐳 As a [Docker Captain](https://www.docker.com/captains/vladimir-mikhalev/), I’m stoked to share my knowledge, experiences, and a good dose of passion for the tech. My aim is to encourage learning, innovation, and growth, and to inspire the next generation of IT whizz-kids to push Docker and container tech to its limits.
+### Common first-deploy issues
 
-Let’s do this together!
+- **502 for the first minutes.** Normal — GitLab is still migrating. Watch `docker compose -p gitlab logs -f gitlab` until `gitlab Reconfigured!`.
+- **Cert issuance fails.** DNS hasn't propagated or port 80 isn't reachable from the internet.
+- **`docker compose up` fails with `set in .env`.** A required variable is empty; the error names it.
+- **`network gitlab-network not found`.** Step 2 was skipped.
+- **SSH clone hangs.** Port 2222 closed, or the remote URL uses port 22 — clone URLs are `ssh://git@gitlab.example.com:2222/group/repo.git`.
 
-## My 2D Portfolio
+### Apply `.env` or compose-file changes
 
-🕹️ Click into [sre.gg](https://www.sre.gg/) — my virtual space is a 2D pixel-art portfolio inviting you to interact with elements that encapsulate the milestones of my DevOps career.
+```bash
+docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d --force-recreate
+```
 
-## My Courses
+## Features
 
-🎓 Dive into my [comprehensive IT courses](https://www.heyvaldemar.com/courses/) designed for enthusiasts and professionals alike. Whether you're looking to master Docker, conquer Kubernetes, or advance your DevOps skills, my courses provide a structured pathway to enhancing your technical prowess.
+- **GitLab EE 19.3** (free tier features without a license) — repositories, CI/CD, registry-ready, issues, merge requests.
+- **External PostgreSQL 17** with healthcheck — backupable and upgradable independently of the omnibus bundle (`postgresql['enable'] = false`).
+- **Traefik v3** with automatic HTTP→HTTPS redirect and Let's Encrypt TLS-ALPN certificate issuance.
+- **Git-over-SSH via a dedicated Traefik TCP entrypoint** on port 2222.
+- **GitLab Runner container** on the same network, one `register` command away from running your pipelines.
+- **SMTP off by default** — opt in via `GITLAB_SMTP_ENABLED` and the `GITLAB_SMTP_*` variables.
+- **Credentials required at deploy time** — compose fails fast if `.env` is incomplete.
 
-🔑 [Each course](https://www.udemy.com/user/heyvaldemar/) is built from the ground up with real-world scenarios in mind, ensuring that you gain practical knowledge and hands-on experience. From beginners to seasoned professionals, there's something here for everyone to elevate their IT skills.
+### Typical use cases
 
-## My Services
+- **Self-hosted DevOps platform** — code, CI/CD, and packages behind your own firewall.
+- **Compliance-bound source control** — data residency without SaaS.
+- **CI lab** — full pipeline experimentation with a local runner, no minute quotas.
+- **Migration staging** — validate a self-managed setup before committing hardware.
 
-💼 Take a look at my [service catalog](https://www.heyvaldemar.com/services/) and find out how we can make your technological life better. Whether it's increasing the efficiency of your IT infrastructure, advancing your career, or expanding your technological horizons — I'm here to help you achieve your goals. From DevOps transformations to building gaming computers — let's make your technology unparalleled!
+## Registering the runner
 
-## Patreon Exclusives
+The `gitlab-runner-1` container ships unregistered. After first login, create a runner in the GitLab UI (Admin → CI/CD → Runners → New instance runner), copy the token, then:
 
-🏆 Join my [Patreon](https://www.patreon.com/heyvaldemar) and dive deep into the world of Docker and DevOps with exclusive content tailored for IT enthusiasts and professionals. As your experienced guide, I offer a range of membership tiers designed to suit everyone from newbies to IT experts.
+```bash
+docker compose -p gitlab exec gitlab-runner-1 gitlab-runner register \
+  --url "https://gitlab.example.com" \
+  --token "<runner-token>" \
+  --executor docker \
+  --docker-image alpine:latest
+```
 
-## My Recommendations
+## Email (SMTP)
 
-📕 Check out my collection of [essential DevOps books](https://kit.co/heyvaldemar/essential-devops-books)\
-🖥️ Check out my [studio streaming and recording kit](https://kit.co/heyvaldemar/my-studio-streaming-and-recording-kit)\
-📡 Check out my [streaming starter kit](https://kit.co/heyvaldemar/streaming-starter-kit)
+SMTP is **disabled by default**. To enable outgoing email, set `GITLAB_SMTP_ENABLED=true` plus the `GITLAB_SMTP_*` values in `.env` (see `.env.example`), then `docker compose up -d --force-recreate`.
 
-## Follow Me
+## Supply chain trust
 
-🎬 [YouTube](https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1)\
-🐦 [X / Twitter](https://twitter.com/heyvaldemar)\
-🎨 [Instagram](https://www.instagram.com/heyvaldemar/)\
-🐘 [Mastodon](https://mastodon.social/@heyvaldemar)\
-🧵 [Threads](https://www.threads.net/@heyvaldemar)\
-🎸 [Facebook](https://www.facebook.com/heyvaldemarFB/)\
-🧊 [Bluesky](https://bsky.app/profile/heyvaldemar.bsky.social)\
-🎥 [TikTok](https://www.tiktok.com/@heyvaldemar)\
-💻 [LinkedIn](https://www.linkedin.com/in/heyvaldemar/)\
-📣 [daily.dev Squad](https://app.daily.dev/squads/devopscompass)\
-🧩 [LeetCode](https://leetcode.com/u/heyvaldemar/)\
-🐈 [GitHub](https://github.com/heyvaldemar)
+This repository is a **deployment template**, not a custom Docker image. It orchestrates four upstream images:
 
-## Community of IT Experts
+- [`traefik`](https://hub.docker.com/_/traefik) — reverse proxy, Docker Hub official image
+- [`gitlab/gitlab-ee`](https://hub.docker.com/r/gitlab/gitlab-ee) — GitLab upstream
+- [`gitlab/gitlab-runner`](https://hub.docker.com/r/gitlab/gitlab-runner) — GitLab Runner upstream
+- [`postgres`](https://hub.docker.com/_/postgres) — PostgreSQL, Docker Hub official image
 
-👾 [Discord](https://discord.gg/AJQGCCBcqf)
+All four are pinned to `tag@sha256:<digest>` as interpolation defaults in the compose file's `x-images` block. Compose pulls by digest, not by tag — and `git pull` alone delivers the version combination this repository has tested. Setting an `*_IMAGE_TAG` variable in `.env` overrides the default when you deliberately want a different version.
 
-## Refill My Coffee Supplies
+The weekly `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned GitLab and Traefik versions against the latest upstream releases — any drift fails the run and notifies the maintainer. CI's **Deployment Verification** workflow runs on every push, pull request, and every Monday at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot keeps those fresh.
 
-💖 [PayPal](https://www.paypal.com/paypalme/heyvaldemarCOM)\
-🏆 [Patreon](https://www.patreon.com/heyvaldemar)\
-💎 [GitHub](https://github.com/sponsors/heyvaldemar)\
-🥤 [BuyMeaCoffee](https://www.buymeacoffee.com/heyvaldemar)\
-🍪 [Ko-fi](https://ko-fi.com/heyvaldemar)
+## Production checklist
 
-🌟 **Bitcoin (BTC):** bc1q2fq0k2lvdythdrj4ep20metjwnjuf7wccpckxc\
-🔹 **Ethereum (ETH):** 0x76C936F9366Fad39769CA5285b0Af1d975adacB8\
-🪙 **Binance Coin (BNB):** bnb1xnn6gg63lr2dgufngfr0lkq39kz8qltjt2v2g6\
-💠 **Litecoin (LTC):** LMGrhx8Jsx73h1pWY9FE8GB46nBytjvz8g
+- [ ] **Change the root password immediately** — the generated one expires in 24 hours.
+- [ ] **Strong secrets.** `GITLAB_DB_PASSWORD` at 24+ random characters; regenerate the Traefik dashboard BCrypt hash per deployment.
+- [ ] **Disable open sign-ups** (Admin → Settings → General → Sign-up restrictions) unless you mean it.
+- [ ] **Back up on a schedule.** Run `gitlab-backup create` via cron/systemd timer against the gitlab container, and back up `/etc/gitlab` (secrets!) plus the external Postgres separately.
+- [ ] **Verify Let's Encrypt cert issuance** in the Traefik logs on first start.
+- [ ] **Size RAM honestly.** GitLab under 4 GB swaps itself to death.
+- [ ] **Follow the official upgrade path** for any version move — see below.
+
+## Upgrading an existing deployment
+
+GitLab does **not** support skipping upgrade stops. Moving an existing instance from the previously pinned 17.7 to the current 19.3 requires walking GitLab's documented path (roughly: 17.7 → 17.11 → 18.x stops → 19.x — consult the [upgrade path tool](https://gitlab-com.gitlab.io/support/toolbox/upgrade-path/) for your exact route), **and** migrating the external database from PostgreSQL 14 to 17 (GitLab 18 requires 16+, GitLab 19 requires 17: dump on 14, restore into a fresh 17 volume, at the stop GitLab's docs prescribe).
+
+Practical route: back up everything (`gitlab-backup create`, `/etc/gitlab`, `pg_dump`), then step through the path by setting `GITLAB_IMAGE_TAG` (and `GITLAB_POSTGRES_IMAGE_TAG` at the DB stop) in `.env`, waiting for background migrations to finish at every stop (Admin → Monitoring → Background migrations). Once you reach the pinned versions, remove the overrides from `.env` to switch to repo-managed pins. Fresh deployments need none of this.
+
+## Testing
+
+The [Deployment Verification](https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml?query=branch%3Amain) workflow runs on every push, pull request, and every Monday at 06:00 UTC:
+
+1. **Lint** — actionlint on the workflow.
+2. **Trivy scans** of all four pinned images (CRITICAL/HIGH, SARIF to the Security tab).
+3. **Pin freshness** (weekly/manual) — digest drift plus release-lag checks for GitLab and Traefik.
+4. **Deploy-and-test** — boots the full stack with ephemeral credentials, sits through GitLab's first-boot reconfigure and database migrations against the external Postgres 17, and requires the sign-in page to answer 200 through Traefik — the heaviest end-to-end proof in the fleet.
+
+A green run is the authoritative proof that the template deploys end-to-end.
+
+## Security Notes
+
+- Credentials are read from `.env` at deploy time; `.env` is gitignored and compose fails fast on missing required variables.
+- **Pre-rotation advisory.** Releases before v1.0.0 (2026-08-31) shipped a tracked `.env` with generated-looking database and SMTP passwords. Rotate them if your deployment reused them.
+- The database listens only on the internal network; only 80/443/2222 are exposed through Traefik.
+- Upstream image digests are pinned; the weekly freshness job flags drift loudly.
+
+---
+
+## About the maintainer
 
 <div align="center">
 
-### Show some 💜 by starring some of the [repositories](https://github.com/heyValdemar?tab=repositories)!
+**Maintained by [Vladimir Mikhalev](https://github.com/heyvaldemar)** — Docker Captain · IBM Champion · AWS Community Builder
 
-![octocat](https://user-images.githubusercontent.com/10498744/210113490-e2fad07f-4488-4da8-a656-b9abbdd8cb26.gif)
+[YouTube](https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1) · [Blog](https://heyvaldemar.com) · [LinkedIn](https://www.linkedin.com/in/heyvaldemar/)
 
 </div>
-
-![footer](https://user-images.githubusercontent.com/10498744/210157572-1fca0242-8af2-46a6-bfa3-666ffd40ebde.svg)

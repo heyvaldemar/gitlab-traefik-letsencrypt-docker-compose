@@ -1,3 +1,16 @@
+# Image pins live HERE, as interpolation defaults, so `git pull` (or
+# re-downloading this file) delivers the exact version combination this
+# repository has tested — no .env editing required. Setting the matching
+# variable in .env overrides the default for anyone who wants to pin
+# differently; .env itself carries only secrets and deliberate overrides.
+# CI (Trivy scans, check-pin-freshness, the ephemeral test .env) reads
+# the pins from these lines — this block is the single source of truth.
+x-images:
+  traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:3.7@sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf}
+  postgres: &postgres-image ${GITLAB_POSTGRES_IMAGE_TAG:-postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675}
+  gitlab: &gitlab-image ${GITLAB_IMAGE_TAG:-gitlab/gitlab-ee:19.3.1-ee.0@sha256:b5167605564d64acf896be614791092d1409ac3f78214a9e4394ebb24a0be1b5}
+  gitlab-runner: &gitlab-runner-image ${GITLAB_RUNNER_IMAGE_TAG:-gitlab/gitlab-runner:ubuntu-v19.3.1@sha256:74209bd51542dc0cb8aa584f103b34c857ff240c3a275559af307c1cb1efbe4f}
+
 networks:
   gitlab-network:
     external: true
@@ -14,17 +27,17 @@ volumes:
 
 services:
   postgres:
-    image: ${GITLAB_POSTGRES_IMAGE_TAG}
+    image: *postgres-image
     volumes:
       - gitlab-postgres:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${GITLAB_DB_NAME}
-      POSTGRES_USER: ${GITLAB_DB_USER}
-      POSTGRES_PASSWORD: ${GITLAB_DB_PASSWORD}
+      POSTGRES_DB: ${GITLAB_DB_NAME:-gitlabhq_production}
+      POSTGRES_USER: ${GITLAB_DB_USER:-gitlab}
+      POSTGRES_PASSWORD: ${GITLAB_DB_PASSWORD:?set in .env - see .env.example for generation command}
     networks:
       - gitlab-network
     healthcheck:
-      test: [ "CMD", "pg_isready", "-q", "-d", "${GITLAB_DB_NAME}", "-U", "${GITLAB_DB_USER}" ]
+      test: [ "CMD", "pg_isready", "-q", "-d", "${GITLAB_DB_NAME:-gitlabhq_production}", "-U", "${GITLAB_DB_USER:-gitlab}" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -32,7 +45,7 @@ services:
     restart: unless-stopped
 
   gitlab:
-    image: ${GITLAB_IMAGE_TAG}
+    image: *gitlab-image
     volumes:
       - gitlab-data:/var/opt/gitlab
       - gitlab-logs:/var/log/gitlab
@@ -40,8 +53,8 @@ services:
     shm_size: "256m"
     environment:
       GITLAB_OMNIBUS_CONFIG: |
-        external_url '${GITLAB_URL}'
-        gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SHELL_SSH_PORT}
+        external_url '${GITLAB_URL:?set in .env - see .env.example}'
+        gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SHELL_SSH_PORT:-2222}
         nginx['enable'] = true
         nginx['listen_port'] = 80
         nginx['listen_https'] = false
@@ -49,23 +62,23 @@ services:
                 'X-Forwarded-Proto' => 'https',
                 'X-Forwarded-Ssl' => 'on'
         }
-        gitlab_rails['db_adapter'] = "${GITLAB_DB_TYPE}"
+        gitlab_rails['db_adapter'] = "${GITLAB_DB_TYPE:-postgresql}"
         gitlab_rails['db_encoding'] = "unicode"
         gitlab_rails['db_host'] = "postgres"
-        gitlab_rails['db_database'] = "${GITLAB_DB_NAME}"
-        gitlab_rails['db_username'] = "${GITLAB_DB_USER}"
+        gitlab_rails['db_database'] = "${GITLAB_DB_NAME:-gitlabhq_production}"
+        gitlab_rails['db_username'] = "${GITLAB_DB_USER:-gitlab}"
         gitlab_rails['db_password'] = "${GITLAB_DB_PASSWORD}"
-        gitlab_rails['smtp_enable'] = true
-        gitlab_rails['smtp_address'] = "${GITLAB_SMTP_ADDRESS}"
+        gitlab_rails['smtp_enable'] = ${GITLAB_SMTP_ENABLED:-false}
+        gitlab_rails['smtp_address'] = "${GITLAB_SMTP_ADDRESS:-smtp.example.com}"
         gitlab_rails['smtp_port'] = 587
-        gitlab_rails['smtp_user_name'] = "${GITLAB_SMTP_USER_NAME}"
-        gitlab_rails['smtp_password'] = "${GITLAB_SMTP_PASSWORD}"
-        gitlab_rails['smtp_domain'] = "${GITLAB_SMTP_ADDRESS}"
+        gitlab_rails['smtp_user_name'] = "${GITLAB_SMTP_USER_NAME:-}"
+        gitlab_rails['smtp_password'] = "${GITLAB_SMTP_PASSWORD:-}"
+        gitlab_rails['smtp_domain'] = "${GITLAB_SMTP_ADDRESS:-smtp.example.com}"
         gitlab_rails['smtp_authentication'] = "login"
         gitlab_rails['smtp_enable_starttls_auto'] = true
         gitlab_rails['smtp_tls'] = false
-        gitlab_rails['gitlab_email_from'] = "${GITLAB_EMAIL_FROM}"
-        gitlab_rails['gitlab_email_reply_to'] = "${GITLAB_EMAIL_REPLY_TO}"
+        gitlab_rails['gitlab_email_from'] = "${GITLAB_EMAIL_FROM:-gitlab@example.com}"
+        gitlab_rails['gitlab_email_reply_to'] = "${GITLAB_EMAIL_REPLY_TO:-gitlab@example.com}"
         postgresql['enable'] = false
         registry['enable'] = false
     networks:
@@ -81,7 +94,7 @@ services:
       # Enable Traefik for this container
       - "traefik.enable=true"
       # Match incoming requests on a specific hostname
-      - "traefik.http.routers.gitlab.rule=Host(`${GITLAB_HOSTNAME}`)"
+      - "traefik.http.routers.gitlab.rule=Host(`${GITLAB_HOSTNAME:?set in .env - see .env.example}`)"
       # Assign the router to a named Traefik service
       - "traefik.http.routers.gitlab.service=gitlab"
       # Use the 'websecure' (HTTPS) entry point
@@ -116,7 +129,7 @@ services:
         condition: service_healthy
 
   gitlab-runner-1:
-    image: ${GITLAB_RUNNER_IMAGE_TAG}
+    image: *gitlab-runner-image
     volumes:
       - gitlab-runner-config:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
@@ -125,10 +138,10 @@ services:
     restart: unless-stopped
 
   traefik:
-    image: ${TRAEFIK_IMAGE_TAG}
+    image: *traefik-image
     command:
       # Set the log level (DEBUG, INFO, WARN, ERROR)
-      - "--log.level=${TRAEFIK_LOG_LEVEL}"
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-WARN}"
       # Enable the built-in API and web-based dashboard
       - "--api.dashboard=true"
       # Enable the /ping endpoint so we can health-check Traefik
@@ -144,7 +157,7 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       # Define the SSH entry point using an environment variable for the port
-      - "--entryPoints.ssh.address=:${GITLAB_SHELL_SSH_PORT}"
+      - "--entryPoints.ssh.address=:${GITLAB_SHELL_SSH_PORT:-2222}"
       # Enable the Docker provider to detect containers and their labels
       - "--providers.docker=true"
       # Point Traefik to the Docker socket
@@ -155,7 +168,7 @@ services:
       # Use ACME (Let's Encrypt) to generate/renew certificates via TLS challenge
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
       # The email address used by Let's Encrypt for renewal notices
-      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL:?set in .env - see .env.example}"
       # The file where ACME certificates are stored inside the container
       - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
       # Enable Prometheus metrics
@@ -172,7 +185,7 @@ services:
     networks:
       - traefik-network
     ports:
-      - "${GITLAB_SHELL_SSH_PORT}:${GITLAB_SHELL_SSH_PORT}"
+      - "${GITLAB_SHELL_SSH_PORT:-2222}:${GITLAB_SHELL_SSH_PORT:-2222}"
       - "80:80"
       - "443:443"
     healthcheck:
@@ -185,14 +198,14 @@ services:
       # Enable Traefik for this container
       - "traefik.enable=true"
       # A router to expose the Traefik dashboard
-      - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_HOSTNAME:?set in .env - see .env.example}`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dashboard.service=api@internal"
       # Basic Authentication for the Traefik dashboard
       - "traefik.http.routers.dashboard.middlewares=authtraefik"
-      - "traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_BASIC_AUTH}"
+      - "traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_BASIC_AUTH:?set in .env - see .env.example for htpasswd generation}"
       # Specify the internal server port to the dashboard service
       - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
       # Pass the original Host header to the backend
