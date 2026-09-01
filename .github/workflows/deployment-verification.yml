@@ -132,23 +132,27 @@ jobs:
           done
           exit "$status"
 
-      - name: Compare pinned GitLab version against the latest release
+      - name: Compare pinned GitLab version against the latest Docker Hub tag
+        # gitlab.com's public API started answering 403 to anonymous
+        # requests, so the check reads the image tags instead — Docker Hub
+        # is where the pin points anyway.
         run: |
           pin="$(grep -oE '\$\{GITLAB_IMAGE_TAG:-[^}]+\}' gitlab-traefik-letsencrypt-docker-compose.yml | head -1 | sed -E 's/^\$\{GITLAB_IMAGE_TAG:-//; s/\}$//')"
           ref="${pin%%@*}"
           tag="${ref##*:}"
           pinned_version="${tag%-ee.0}"
-          latest="$(curl -fsSL --retry 3 "https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab/releases?per_page=1" | jq -r '.[0].tag_name')"
-          latest="${latest#v}"; latest="${latest%-ee}"
-          if [ -z "$latest" ] || [ "$latest" = "null" ]; then
-            echo "::error::Could not determine the latest GitLab release"
+          tok="$(curl -fsSL --retry 3 'https://auth.docker.io/token?service=registry.docker.io&scope=repository:gitlab/gitlab-ee:pull' | jq -r .token)"
+          latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $tok" 'https://registry-1.docker.io/v2/gitlab/gitlab-ee/tags/list?n=50000' | jq -r '.tags[]' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-ee\.0$' | sort -V | tail -1)"
+          latest="${latest%-ee.0}"
+          if [ -z "$latest" ]; then
+            echo "::error::Could not determine the latest GitLab tag from Docker Hub"
             exit 1
           fi
           if [ "$pinned_version" != "$latest" ]; then
-            echo "::error::GitLab pin is behind: pinned ${pinned_version}, latest release is ${latest}"
+            echo "::error::GitLab pin is behind: pinned ${pinned_version}, latest tag is ${latest}"
             exit 1
           fi
-          echo "GitLab pin ${pinned_version} matches the latest release"
+          echo "GitLab pin ${pinned_version} matches the latest Docker Hub tag"
 
       - name: Compare pinned Traefik minor against the latest release
         run: |
