@@ -28,6 +28,16 @@ volumes:
 services:
   postgres:
     image: *postgres-image
+    # Resource limits as .env-overridable defaults (e.g. GITLAB_POSTGRES_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${GITLAB_POSTGRES_MEMORY_LIMIT:-1g}
+          cpus: "${GITLAB_POSTGRES_CPU_LIMIT:-1.0}"
+        reservations:
+          memory: ${GITLAB_POSTGRES_MEMORY_RESERVATION:-128m}
+          cpus: "${GITLAB_POSTGRES_CPU_RESERVATION:-0.25}"
     # GitLab's schema load and migrations exhaust PostgreSQL's default lock
     # table (structure.sql fails with "out of shared memory"). GitLab's
     # external-database guidance calls for a raised max_locks_per_transaction.
@@ -50,6 +60,16 @@ services:
 
   gitlab:
     image: *gitlab-image
+    # Resource limits as .env-overridable defaults (e.g. GITLAB_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${GITLAB_MEMORY_LIMIT:-6g}
+          cpus: "${GITLAB_CPU_LIMIT:-4.0}"
+        reservations:
+          memory: ${GITLAB_MEMORY_RESERVATION:-1g}
+          cpus: "${GITLAB_CPU_RESERVATION:-1.0}"
     volumes:
       - gitlab-data:/var/opt/gitlab
       - gitlab-logs:/var/log/gitlab
@@ -134,6 +154,16 @@ services:
 
   gitlab-runner-1:
     image: *gitlab-runner-image
+    # Resource limits as .env-overridable defaults (e.g. GITLAB_RUNNER_1_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${GITLAB_RUNNER_1_MEMORY_LIMIT:-512m}
+          cpus: "${GITLAB_RUNNER_1_CPU_LIMIT:-1.0}"
+        reservations:
+          memory: ${GITLAB_RUNNER_1_MEMORY_RESERVATION:-64m}
+          cpus: "${GITLAB_RUNNER_1_CPU_RESERVATION:-0.25}"
     volumes:
       - gitlab-runner-config:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
@@ -143,6 +173,16 @@ services:
 
   traefik:
     image: *traefik-image
+    # Resource limits as .env-overridable defaults (e.g. TRAEFIK_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${TRAEFIK_MEMORY_LIMIT:-256m}
+          cpus: "${TRAEFIK_CPU_LIMIT:-0.5}"
+        reservations:
+          memory: ${TRAEFIK_MEMORY_RESERVATION:-64m}
+          cpus: "${TRAEFIK_CPU_RESERVATION:-0.1}"
     command:
       # Set the log level (DEBUG, INFO, WARN, ERROR)
       - "--log.level=${TRAEFIK_LOG_LEVEL:-WARN}"
