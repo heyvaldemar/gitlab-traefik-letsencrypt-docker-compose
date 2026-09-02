@@ -158,7 +158,7 @@ The weekly `check-pin-freshness` CI job re-resolves each pinned tag against its 
 - [ ] **Change the root password immediately** — the generated one expires in 24 hours.
 - [ ] **Strong secrets.** `GITLAB_DB_PASSWORD` at 24+ random characters; regenerate the Traefik dashboard BCrypt hash per deployment.
 - [ ] **Disable open sign-ups** (Admin → Settings → General → Sign-up restrictions) unless you mean it.
-- [ ] **Back up on a schedule.** Run `gitlab-backup create` via cron/systemd timer against the gitlab container, and back up `/etc/gitlab` (secrets!) plus the external Postgres separately.
+- [ ] **Put `gitlab-backup.sh` on a timer** (see Backups) and replicate `GITLAB_BACKUPS_PATH` off-host — the config archive carries `gitlab-secrets.json`, without which a backup is undecryptable.
 - [ ] **Verify Let's Encrypt cert issuance** in the Traefik logs on first start.
 - [ ] **Size RAM honestly.** GitLab under 4 GB swaps itself to death.
 - [ ] **Follow the official upgrade path** for any version move — see below.
@@ -192,6 +192,26 @@ This is deliberately a host-side script and not a container in the stack: an in-
 ## Resource limits
 
 Every service carries memory and CPU limits plus reservations as compose-level defaults — the same values CI boots the stack under. Override any of them in `.env` (the knobs and their defaults are listed in `.env.example`, e.g. `TRAEFIK_MEMORY_LIMIT=512m`) and the override survives every `git pull`. If a service is OOM-killed under real load, `docker inspect <container> --format '{{.State.OOMKilled}}'` says so; raise its `_MEMORY_LIMIT` and recreate.
+
+## Backups
+
+GitLab has its own backup tool that knows the schema, the repositories, the uploads and the registry, so this template wraps it instead of dumping around it. `gitlab-backup.sh` runs `gitlab-backup create STRATEGY=copy` (the instance stays usable), copies the resulting `<timestamp>_gitlab_backup.tar` to `GITLAB_BACKUPS_PATH` (default `./backups`), archives `/etc/gitlab` as `<timestamp>_gitlab_config.tar.gz` — `gitlab-secrets.json` lives there, and without it the backup cannot be decrypted (2FA, CI variables) — and prunes files older than `GITLAB_BACKUP_PRUNE_DAYS` (default 7). Every step logs `OK` or `FAILED`.
+
+```bash
+chmod +x gitlab-backup.sh
+./gitlab-backup.sh
+# cron:
+17 3 * * *  /opt/gitlab-traefik-letsencrypt-docker-compose/gitlab-backup.sh >> /var/log/gitlab-backup.log 2>&1
+```
+
+**Restore** ([upstream procedure](https://docs.gitlab.com/ee/administration/backup_restore/restore_gitlab.html)): with the same GitLab version running, copy the tar back into the container and run `gitlab-backup restore BACKUP=<timestamp>`, then put `gitlab-secrets.json` from the config archive into `/etc/gitlab` and `gitlab-ctl reconfigure`:
+
+```bash
+docker compose -p gitlab cp ./backups/<timestamp>_gitlab_backup.tar gitlab:/var/opt/gitlab/backups/
+docker compose -p gitlab exec gitlab gitlab-backup restore BACKUP=<timestamp>
+```
+
+**Off-host replication.** `./backups` is on the same host as GitLab — point `GITLAB_BACKUPS_PATH` at a directory your off-host backup solution (restic, rclone, Borg, S3 sync) already covers.
 
 ## Testing
 

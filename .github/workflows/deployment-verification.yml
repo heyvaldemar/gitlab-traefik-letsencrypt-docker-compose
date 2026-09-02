@@ -237,6 +237,16 @@ jobs:
           curl -fskL "https://$APP_HOSTNAME/users/sign_in" -o /dev/null -w "GitLab sign-in page: %{http_code}\n"
           curl -fsk "https://$APP_HOSTNAME/-/readiness?all=1" || true
 
+      - name: Run gitlab-backup.sh and verify the artefacts
+        # The host-side script wraps gitlab-backup create (STRATEGY=copy) and
+        # archives /etc/gitlab; CI proves it works on a fresh instance.
+        run: |
+          chmod +x gitlab-backup.sh
+          GITLAB_BACKUPS_PATH=./ci-backups ./gitlab-backup.sh
+          ls -la ./ci-backups
+          tar -tf ./ci-backups/*_gitlab_backup.tar | head -5
+          tar -tzf ./ci-backups/*_gitlab_config.tar.gz | grep -q "gitlab-secrets.json" && echo "config archive carries gitlab-secrets.json"
+
       - name: Wait for the Traefik dashboard to be ready
         run: |
           # shellcheck disable=SC2016

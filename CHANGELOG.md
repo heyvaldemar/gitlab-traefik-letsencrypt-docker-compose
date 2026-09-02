@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _(no unreleased changes yet)_
 
+## [1.3.0] - 2026-09-02
+
+### Added
+
+- **`gitlab-backup.sh`** — a cron-ready host script around the tool that
+  actually knows GitLab: `gitlab-backup create STRATEGY=copy` (repos,
+  database, uploads, registry, ...), copied out to `GITLAB_BACKUPS_PATH`
+  (default `./backups`), plus a `tar.gz` of `/etc/gitlab` — `gitlab.rb`
+  and `gitlab-secrets.json`, without which the backup cannot be
+  decrypted. Every step logs `OK` or `FAILED`; files older than
+  `GITLAB_BACKUP_PRUNE_DAYS` (default 7) are pruned. The README carries
+  the timer line and the restore procedure.
+- CI runs the script against the fresh instance and checks that both
+  archives are readable and the config archive carries the secrets.
+
 ## [1.2.0] - 2026-09-02
 
 ### Added
@@ -73,7 +88,8 @@ v1.2.0.
   reconfigure and database migrations, and requires the sign-in page to
   answer 200 through Traefik.
 
-[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/releases/tag/v1.0.0
