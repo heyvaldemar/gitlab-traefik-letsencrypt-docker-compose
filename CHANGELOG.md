@@ -28,10 +28,10 @@ _(no unreleased changes yet)_
 
 ### Added
 
-- **`gitlab-backup.sh`** — a cron-ready host script around the tool that
+- **`gitlab-backup.sh`**: a cron-ready host script around the tool that
   actually knows GitLab: `gitlab-backup create STRATEGY=copy` (repos,
   database, uploads, registry, ...), copied out to `GITLAB_BACKUPS_PATH`
-  (default `./backups`), plus a `tar.gz` of `/etc/gitlab` — `gitlab.rb`
+  (default `./backups`), plus a `tar.gz` of `/etc/gitlab`: `gitlab.rb`
   and `gitlab-secrets.json`, without which the backup cannot be
   decrypted. Every step logs `OK` or `FAILED`; files older than
   `GITLAB_BACKUP_PRUNE_DAYS` (default 7) are pruned. The README carries
@@ -56,7 +56,7 @@ _(no unreleased changes yet)_
 
 ### Added
 
-- **`update.sh`** — unattended updates to the newest tagged release,
+- **`update.sh`**: unattended updates to the newest tagged release,
   and nothing else: a tag is cut only after CI has booted the pinned
   images and passed the smoke tests, so "update to the latest tag" means
   "update to a combination a machine has already run". It refuses to
@@ -74,13 +74,13 @@ v1.2.0.
 
 - **GitLab bumped 17.7.2-ee → 19.3.1-ee** and **PostgreSQL 14 → 17**
   (GitLab 19.x requires PostgreSQL 17). ❗ Existing deployments cannot jump
-  straight to these versions — see the release notes for the mandatory
+  straight to these versions. See the release notes for the mandatory
   GitLab upgrade path and the database migration.
-- **Traefik bumped 3.2 → 3.7** — Traefik 3.2's Docker client cannot talk
+- **Traefik bumped 3.2 → 3.7**: Traefik 3.2's Docker client cannot talk
   to Docker Engine 29 (provider retry loop, silent 404s on current hosts).
 - **All four images pinned by `tag@sha256:digest`.**
 - **Credentials untracked from git.** The tracked `.env` carried
-  generated-looking database and SMTP passwords published on GitHub —
+  generated-looking database and SMTP passwords published on GitHub:
   rotate them if your deployment reused them. `.env` is now gitignored and
   compose fails fast when required values are unset.
 
