@@ -19,7 +19,7 @@
 - [Security Notes](#security-notes)
 - [About the maintainer](#about-the-maintainer)
 
-This repository deploys **GitLab EE** (free tier) behind **Traefik** with automatic **Let's Encrypt TLS**, backed by an external **PostgreSQL 17**, with git-over-SSH routed through a dedicated Traefik TCP entrypoint and a **GitLab Runner** container ready to register. One `docker compose up` away from a complete DevOps platform at `https://your-domain`.
+This repository deploys GitLab EE (free tier) behind Traefik with automatic Let's Encrypt TLS, backed by an external PostgreSQL 17, with git-over-SSH routed through a dedicated Traefik TCP entrypoint and a GitLab Runner container ready to register. One `docker compose up` away from a complete DevOps platform at `https://your-domain`.
 
 📙 Full narrative installation guide on the blog: [heyvaldemar.com/install-gitlab-using-docker-compose/](https://www.heyvaldemar.com/install-gitlab-using-docker-compose/).
 
@@ -43,7 +43,7 @@ Four moving parts (Traefik + GitLab + Postgres + runner). Heavy by nature (GitLa
 
 Before you start, you need:
 
-- **A Linux server** with a public IP and **at least 4 GB RAM + 4 CPU cores** (GitLab's own minimum; 8 GB is comfortable). Tested on Ubuntu 22.04 LTS+ and Debian 12+.
+- **A Linux server** with a public IP and at least 4 GB RAM + 4 CPU cores (GitLab's own minimum; 8 GB is comfortable). Tested on Ubuntu 22.04 LTS+ and Debian 12+.
 - **Docker Engine 24+ and Docker Compose 2.20+.**
 - **A domain you control,** with two `A` records pointing at your server's public IP: one for GitLab (e.g. `gitlab.example.com`), one for the Traefik dashboard. DNS must propagate before deploy.
 - **Ports 80, 443, and 2222 open**: 2222 carries git-over-SSH (configurable via `GITLAB_SHELL_SSH_PORT`).
@@ -70,7 +70,7 @@ $EDITOR .env
 docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d
 ```
 
-First boot runs GitLab's full reconfigure and database migrations. Expect **5-10 minutes** before `https://${GITLAB_HOSTNAME}` serves the sign-in page. Then read the generated root password (valid 24 hours, change it right away):
+First boot runs GitLab's full reconfigure and database migrations. Expect 5-10 minutes before `https://${GITLAB_HOSTNAME}` serves the sign-in page. Then read the generated root password (valid 24 hours, change it right away):
 
 ```bash
 docker compose -p gitlab exec gitlab cat /etc/gitlab/initial_root_password
@@ -138,11 +138,11 @@ docker compose -p gitlab exec gitlab-runner-1 gitlab-runner register \
 
 ## Email (SMTP)
 
-SMTP is **disabled by default**. To enable outgoing email, set `GITLAB_SMTP_ENABLED=true` plus the `GITLAB_SMTP_*` values in `.env` (see `.env.example`), then `docker compose up -d --force-recreate`.
+SMTP is disabled by default. To enable outgoing email, set `GITLAB_SMTP_ENABLED=true` plus the `GITLAB_SMTP_*` values in `.env` (see `.env.example`), then `docker compose up -d --force-recreate`.
 
 ## Supply chain trust
 
-This repository is a **deployment template**, not a custom Docker image. It orchestrates four upstream images:
+This repository is a deployment template, not a custom Docker image. It orchestrates four upstream images:
 
 - [`traefik`](https://hub.docker.com/_/traefik): reverse proxy, Docker Hub official image
 - [`gitlab/gitlab-ee`](https://hub.docker.com/r/gitlab/gitlab-ee): GitLab upstream
@@ -153,7 +153,7 @@ All four are pinned to `tag@sha256:<digest>` as interpolation defaults in the co
 
 Two override levels exist per image. `<PREFIX>_IMAGE_VERSION` in `.env` swaps only the version of that image (Compose then pulls the tag, without a digest) and leaves every other pin as tested; `<PREFIX>_IMAGE_TAG` replaces the whole reference, digest included. The variable names are listed in `.env.example`. Nested defaults need Docker Compose v2.5 or newer (2022); v2.0 to v2.4 leave the inner `${...}` unexpanded and `docker compose up` fails with an invalid reference instead of deploying something unexpected.
 
-The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned GitLab and Traefik versions against the latest upstream releases. Any drift fails the run and notifies the maintainer. CI's **Deployment Verification** workflow runs on every push, pull request, and every day at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot keeps those fresh.
+The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned GitLab and Traefik versions against the latest upstream releases. Any drift fails the run and notifies the maintainer. CI's Deployment Verification workflow runs on every push, pull request, and every day at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot keeps those fresh.
 
 ## Production checklist
 
@@ -167,7 +167,7 @@ The daily `check-pin-freshness` CI job re-resolves each pinned tag against its r
 
 ## Upgrading an existing deployment
 
-GitLab does **not** support skipping upgrade stops. Moving an existing instance from the previously pinned 17.7 to the current 19.3 requires walking GitLab's documented path (roughly: 17.7 → 17.11 → 18.x stops → 19.x, consult the [upgrade path tool](https://gitlab-com.gitlab.io/support/toolbox/upgrade-path/) for your exact route), **and** migrating the external database from PostgreSQL 14 to 17 (GitLab 18 requires 16+, GitLab 19 requires 17: dump on 14, restore into a fresh 17 volume, at the stop GitLab's docs prescribe).
+GitLab does not support skipping upgrade stops. Moving an existing instance from the previously pinned 17.7 to the current 19.3 requires walking GitLab's documented path (roughly: 17.7 → 17.11 → 18.x stops → 19.x, consult the [upgrade path tool](https://gitlab-com.gitlab.io/support/toolbox/upgrade-path/) for your exact route), and migrating the external database from PostgreSQL 14 to 17 (GitLab 18 requires 16+, GitLab 19 requires 17: dump on 14, restore into a fresh 17 volume, at the stop GitLab's docs prescribe).
 
 Practical route: back up everything (`gitlab-backup create`, `/etc/gitlab`, `pg_dump`), then step through the path by setting `GITLAB_IMAGE_TAG` (and `GITLAB_POSTGRES_IMAGE_TAG` at the DB stop) in `.env`, waiting for background migrations to finish at every stop (Admin → Monitoring → Background migrations). Once you reach the pinned versions, remove the overrides from `.env` to switch to repo-managed pins. Fresh deployments need none of this.
 
@@ -230,7 +230,7 @@ The [Deployment Verification](https://github.com/heyvaldemar/gitlab-traefik-lets
 
 A green run is the authoritative proof that the template deploys end-to-end.
 
-## Security Notes
+## Security notes
 
 - Credentials are read from `.env` at deploy time; `.env` is gitignored and compose fails fast on missing required variables.
 - **Pre-rotation advisory.** Releases before v1.0.0 (2026-08-31) shipped a tracked `.env` with generated-looking database and SMTP passwords. Rotate them if your deployment reused them.

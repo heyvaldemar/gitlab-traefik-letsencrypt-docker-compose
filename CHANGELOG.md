@@ -88,7 +88,7 @@ v1.2.0.
 
 ### Security
 
-- **GitLab bumped 17.7.2-ee → 19.3.1-ee** and **PostgreSQL 14 → 17**
+- **GitLab bumped 17.7.2-ee → 19.3.1-ee** and PostgreSQL 14 → 17
   (GitLab 19.x requires PostgreSQL 17). ❗ Existing deployments cannot jump
   straight to these versions. See the release notes for the mandatory
   GitLab upgrade path and the database migration.
