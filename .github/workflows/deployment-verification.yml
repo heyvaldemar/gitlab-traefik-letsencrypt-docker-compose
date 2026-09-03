@@ -137,7 +137,7 @@ jobs:
         # requests, so the check reads the image tags instead — Docker Hub
         # is where the pin points anyway.
         run: |
-          pin="$(grep -oE '\$\{GITLAB_IMAGE_TAG:-[^}]+\}' gitlab-traefik-letsencrypt-docker-compose.yml | head -1 | sed -E 's/^\$\{GITLAB_IMAGE_TAG:-//; s/\}$//')"
+          pin="$(grep -m1 -oE '\$\{GITLAB_IMAGE_TAG:-.*' gitlab-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
           tag="${ref##*:}"
           pinned_version="${tag%-ee.0}"
@@ -156,7 +156,7 @@ jobs:
 
       - name: Compare pinned Traefik minor against the latest release
         run: |
-          pin="$(grep -oE '\$\{TRAEFIK_IMAGE_TAG:-[^}]+\}' gitlab-traefik-letsencrypt-docker-compose.yml | head -1 | sed -E 's/^\$\{TRAEFIK_IMAGE_TAG:-//; s/\}$//')"
+          pin="$(grep -m1 -oE '\$\{TRAEFIK_IMAGE_TAG:-.*' gitlab-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
           pinned_minor="${ref##*:}"
           latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/traefik/traefik/releases/latest | jq -r .tag_name)"
