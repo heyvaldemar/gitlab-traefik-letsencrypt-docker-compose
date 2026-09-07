@@ -9,15 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _(no unreleased changes yet)_
 
-## [1.6.0] - 2026-09-04
+## [1.6.1] - 2026-09-07
 
-### Added
+### Changed
 
-- **A shutdown grace period for PostgreSQL.** Docker stops a container with
-  SIGTERM and ten seconds, then SIGKILL. That default is not always enough:
-  PostgreSQL has a checkpoint to write, MariaDB has InnoDB to flush, and Redis
-  saves its dataset on the way out. Killed halfway, the next start does crash
-  recovery, and a Redis holding another application's file locks leaves them
+- **`update.sh` names any new required variable before it moves.** An update can add a required variable; `docker compose up` used to stop on it after the checkout, with the tree already on the new tag. The script now lists the variables that appeared in `.env.example` since your version and refuses, before anything has moved, when a required one is not in your `.env`. Names only, never values.
+
+aves them
   behind for a person to clear by hand. Sixty seconds now, overridable per
   service with `<PREFIX>_STOP_GRACE_PERIOD` in `.env`. The backup sidecar is
   deliberately left alone: its failure mode is a truncated dump file, which a
@@ -133,7 +131,8 @@ v1.2.0.
   reconfigure and database migrations, and requires the sign-in page to
   answer 200 through Traefik.
 
-[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.3.0...v1.4.0
