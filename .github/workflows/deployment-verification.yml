@@ -145,6 +145,9 @@ jobs:
           exit "$status"
 
       - name: Compare pinned GitLab version against the latest Docker Hub tag
+        # Runs even when the digest comparison above failed, so one run
+        # reports every problem it can see instead of one per day.
+        if: always()
         # gitlab.com's public API started answering 403 to anonymous
         # requests, so the check reads the image tags instead — Docker Hub
         # is where the pin points anyway.
@@ -167,6 +170,9 @@ jobs:
           echo "GitLab pin ${pinned_version} matches the latest Docker Hub tag"
 
       - name: Compare pinned Traefik minor against the latest release
+        # Runs even when the digest comparison above failed, so one run
+        # reports every problem it can see instead of one per day.
+        if: always()
         run: |
           pin="$(grep -m1 -oE '\$\{TRAEFIK_IMAGE_TAG:-.*' gitlab-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z0-9_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
