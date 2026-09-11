@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`gitlab/gitlab-runner:ubuntu-v19.3.1` moved to `gitlab/gitlab-runner:ubuntu-v19.3.2`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
+- **`gitlab/gitlab-ee:19.3.1-ee.0` moved to `gitlab/gitlab-ee:19.3.2-ee.0`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
 
 ## [1.6.1] - 2026-09-07
 
