@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _(no unreleased changes yet)_
 
+## [1.6.7] - 2026-09-13
+
+### Fixed
+
+- **v1.6.6 announced GitLab 19.3.2 and shipped 19.3.1.** Its commit touched
+  `CHANGELOG.md` and nothing else. Fleet triage builds the substitution from the
+  version the freshness check reports, which is `19.3.1`, while the image tag is
+  `19.3.1-ee.0`, so it matched nothing. The lines after that loop ran anyway:
+  the report claimed a bump, the changelog announced one, the CI gate passed
+  because nothing had changed, and the release went out.
+
+  This release actually moves the pin to `19.3.2-ee.0`, and triage will no
+  longer write a changelog entry or cut a release for a bump that edited no
+  file. Nobody who upgraded to v1.6.6 got a different GitLab than v1.6.5; they
+  get 19.3.2 here.
+
 ## [1.6.6] - 2026-09-13
 
 ### Changed
@@ -162,7 +178,8 @@ v1.2.0.
   reconfigure and database migrations, and requires the sign-in page to
   answer 200 through Traefik.
 
-[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.6...HEAD
+[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.7...HEAD
+[1.6.7]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/releases/tag/v1.6.7
 [1.6.6]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.5...v1.6.6
 [1.6.5]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.4...v1.6.5
 [1.6.4]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.3...v1.6.4
