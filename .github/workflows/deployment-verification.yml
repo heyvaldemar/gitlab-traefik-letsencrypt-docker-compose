@@ -163,9 +163,22 @@ jobs:
             echo "::error::Could not determine the latest GitLab tag from Docker Hub"
             exit 1
           fi
-          if [ "$pinned_version" != "$latest" ]; then
+          # ORDER, NOT INEQUALITY. `!=` calls any difference "behind", including
+          # being ahead, and GitHub's releases/latest is the most recently
+          # PUBLISHED release rather than the highest version. A project that
+          # ships a maintenance release for an older branch after a newer one
+          # then fails this check every day, asserting a direction nothing here
+          # established: Nextcloud pins 34.0.3 and the API answered 32.0.15.
+          # The leading v goes because the two sides do not always carry it, and
+          # sort -V does the ordering because a string compare puts 3.10 below 3.7.
+          p_cmp="${pinned_version#v}"; l_cmp="${latest#v}"
+          if [ "$p_cmp" != "$l_cmp" ] \
+             && [ "$(printf '%s\n%s\n' "$p_cmp" "$l_cmp" | sort -V | head -1)" = "$p_cmp" ]; then
             echo "::error::GitLab pin is behind: pinned ${pinned_version}, latest tag is ${latest}"
             exit 1
+          elif [ "$p_cmp" != "$l_cmp" ]; then
+            echo "GitLab pin ${pinned_version} is ahead of the published ${latest}, which is what a maintenance release for an older branch looks like"
+            exit 0
           fi
           echo "GitLab pin ${pinned_version} matches the latest Docker Hub tag"
 
