@@ -109,7 +109,7 @@ docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d 
 
 ## Features
 
-- **GitLab EE 19.3** (free tier features without a license): repositories, CI/CD, registry-ready, issues, merge requests.
+- **GitLab EE 19.4** (free tier features without a license): repositories, CI/CD, registry-ready, issues, merge requests.
 - **External PostgreSQL 17** with healthcheck, backupable and upgradable independently of the omnibus bundle (`postgresql['enable'] = false`).
 - **Traefik v3** with automatic HTTP→HTTPS redirect and Let's Encrypt TLS-ALPN certificate issuance.
 - **Git-over-SSH via a dedicated Traefik TCP entrypoint** on port 2222.
@@ -167,7 +167,7 @@ The daily `check-pin-freshness` CI job re-resolves each pinned tag against its r
 
 ## Upgrading an existing deployment
 
-GitLab does not support skipping upgrade stops. Moving an existing instance from the previously pinned 17.7 to the current 19.3 requires walking GitLab's documented path (roughly: 17.7 → 17.11 → 18.x stops → 19.x, consult the [upgrade path tool](https://gitlab-com.gitlab.io/support/toolbox/upgrade-path/) for your exact route), and migrating the external database from PostgreSQL 14 to 17 (GitLab 18 requires 16+, GitLab 19 requires 17: dump on 14, restore into a fresh 17 volume, at the stop GitLab's docs prescribe).
+GitLab does not support skipping upgrade stops. Moving an existing instance from the previously pinned 17.7 to the current 19.4 requires walking GitLab's documented path (roughly: 17.7 → 17.11 → 18.x stops → 19.x, consult the [upgrade path tool](https://gitlab-com.gitlab.io/support/toolbox/upgrade-path/) for your exact route), and migrating the external database from PostgreSQL 14 to 17 (GitLab 18 requires 16+, GitLab 19 requires 17: dump on 14, restore into a fresh 17 volume, at the stop GitLab's docs prescribe).
 
 Practical route: back up everything (`gitlab-backup create`, `/etc/gitlab`, `pg_dump`), then step through the path by setting `GITLAB_IMAGE_TAG` (and `GITLAB_POSTGRES_IMAGE_TAG` at the DB stop) in `.env`, waiting for background migrations to finish at every stop (Admin → Monitoring → Background migrations). Once you reach the pinned versions, remove the overrides from `.env` to switch to repo-managed pins. Fresh deployments need none of this.
 
