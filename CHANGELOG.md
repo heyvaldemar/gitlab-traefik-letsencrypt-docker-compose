@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GitLab 19.4.** The runner moved to 19.4.0 first, on its own, which left it
+  a minor ahead of the server it is meant to track. This moves the server to
+  match, and the two are pinned in lockstep again.
+
+  **First boot runs GitLab's database migrations, and they are not reversible.**
+  That is the whole of the disruption, and it is why this is a minor here and
+  not a patch. Take the backup this template's own `gitlab-backup.sh` produces
+  before pulling it on a live deployment.
+
+  What was checked rather than assumed: GitLab's required upgrade stops for 19
+  are 19.2, 19.5, 19.8 and 19.11, so 19.3 to 19.4 is a direct hop with no
+  intermediate stop. GitLab 19.x requires PostgreSQL 17, minimum and maximum,
+  and this template pins `postgres:17`. The upstream review could not read
+  release notes for the range, because GitLab does not publish them to GitHub,
+  and said so rather than guessing; the deploy job brought the previous release
+  up first on the volumes this one upgrades, ran the migrations, answered
+  through Traefik and produced a backup before this landed.
+
+### Changed
+
 - **`gitlab/gitlab-runner:ubuntu-v19.3.2` moved to `gitlab/gitlab-runner:ubuntu-v19.4.0`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
 
 ## [1.6.7] - 2026-09-13
