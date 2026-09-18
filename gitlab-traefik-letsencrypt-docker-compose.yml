@@ -9,7 +9,7 @@ x-images:
   traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:f86a2cab1b5c649070c49f883c743dd32d8485a56e3368c5f93b9e91f1e91259}}
   postgres: &postgres-image ${GITLAB_POSTGRES_IMAGE_TAG:-postgres:${GITLAB_POSTGRES_IMAGE_VERSION:-17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675}}
   gitlab: &gitlab-image ${GITLAB_IMAGE_TAG:-gitlab/gitlab-ee:${GITLAB_IMAGE_VERSION:-19.3.2-ee.0@sha256:9b329d307564a53be647a1f17e9a2f1d126c04fa9170d9d2c1edef75b172a9e3}}
-  gitlab-runner: &gitlab-runner-image ${GITLAB_RUNNER_IMAGE_TAG:-gitlab/gitlab-runner:${GITLAB_RUNNER_IMAGE_VERSION:-ubuntu-v19.3.2@sha256:23b81db80313e536171bd0d6e8eb63ddead60eeda0ec6664593cd2415a160c06}}
+  gitlab-runner: &gitlab-runner-image ${GITLAB_RUNNER_IMAGE_TAG:-gitlab/gitlab-runner:${GITLAB_RUNNER_IMAGE_VERSION:-ubuntu-v19.4.0@sha256:e859bcedae25987bdaf0aa79145eb5e50a0195d80a2eda7532e7a9841bb9d9a8}}
 
 networks:
   gitlab-network:
