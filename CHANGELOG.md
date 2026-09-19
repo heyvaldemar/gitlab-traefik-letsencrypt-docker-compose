@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.7.2] - 2026-09-19
+
 ### Security
 
 - **`postgres:17` was rebuilt upstream**; the pin moved from `sha256:67f41722b7a8…` to `sha256:f4c66b820c6f…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
@@ -212,7 +216,8 @@ v1.2.0.
   reconfigure and database migrations, and requires the sign-in page to
   answer 200 through Traefik.
 
-[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.7.2...HEAD
+[1.7.2]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.6.7...v1.7.0
 [1.6.7]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/releases/tag/v1.6.7
