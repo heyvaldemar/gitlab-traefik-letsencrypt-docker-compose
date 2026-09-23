@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The freshness check has its own workflow, Pin Freshness.** It ran inside Deployment Verification, whose badge is the one at the top of this README. Across the fleet, nine red runs in ten were a pin one version behind - which the fleet's triage moves within the day - and a reader cannot tell that from a stack that does not boot. The badge now says whether the stack boots. The job itself is unchanged.
 - **`gitlab/gitlab-ee:19.4.0-ee.0` moved to `19.4.1-ee.0`.** GitLab publishes no
   release notes for a patch in this line, and the commit list is largely
   "Add latest changes from gitlab-org/security/gitlab@19-4-stable-ee" — security
