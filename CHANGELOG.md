@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`gitlab/gitlab-ee:19.4.0-ee.0` moved to `gitlab/gitlab-ee:19.4.1-ee.0`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
 
 ## [1.7.3] - 2026-09-21
 
