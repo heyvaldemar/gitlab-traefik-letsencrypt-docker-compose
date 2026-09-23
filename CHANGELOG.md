@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`gitlab/gitlab-ee:19.4.0-ee.0` moved to `19.4.1-ee.0`.** GitLab publishes no
+  release notes for a patch in this line, and the commit list is largely
+  "Add latest changes from gitlab-org/security/gitlab@19-4-stable-ee" — security
+  backports, which are disclosed later and by design carry no detail now. That
+  is a reason to move, not to wait.
+
+  Asked of the registry, the two images are identical in every field that
+  changes behaviour: user, entrypoint, command, working directory, ports,
+  volumes, healthcheck and the whole environment. Nothing in the contract
+  between the container and this compose file moved.
+
+- **`gitlab/gitlab-runner` stays at `ubuntu-v19.4.0`.** The `ubuntu-v19.4.1` tag
+  is announced but not published — the registry answers 404 for it. The runner
+  is supported against a server of the same or newer minor, so 19.4.0 against
+  19.4.1 is a supported pair, and the freshness check stays red until upstream
+  pushes the tag. That red is upstream's to clear, not this repository's.
+
+### Changed
+
 - **`gitlab/gitlab-ee:19.4.0-ee.0` moved to `gitlab/gitlab-ee:19.4.1-ee.0`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
 
 ## [1.7.3] - 2026-09-21
