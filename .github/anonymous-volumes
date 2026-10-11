@@ -1,0 +1,4 @@
+# Anonymous volumes this stack keeps on purpose, one per line: service, path, reason.
+# The deployment verification fails on any anonymous volume not listed here, because
+# an anonymous volume is never backed up and is replaced by an empty one on down/up.
+gitlab-runner-1 /home/gitlab-runner the runner's home holds build caches; its config is mounted at /etc/gitlab-runner
