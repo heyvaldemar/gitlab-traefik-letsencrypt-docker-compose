@@ -6,9 +6,9 @@
 # CI (Trivy scans, check-pin-freshness, the ephemeral test .env) reads
 # the pins from these lines — this block is the single source of truth.
 x-images:
-  traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c}}
+  traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:0f6150202bc1fed72a7bd2107460eaa510e5b8a905f3fdb5b84f2c8619c33368}}
   postgres: &postgres-image ${GITLAB_POSTGRES_IMAGE_TAG:-postgres:${GITLAB_POSTGRES_IMAGE_VERSION:-17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3}}
-  gitlab: &gitlab-image ${GITLAB_IMAGE_TAG:-gitlab/gitlab-ee:${GITLAB_IMAGE_VERSION:-19.4.2-ee.0@sha256:28235a4da8491e4059999d31febc0434715f4a2021e338da2034998818dd1198}}
+  gitlab: &gitlab-image ${GITLAB_IMAGE_TAG:-gitlab/gitlab-ee:${GITLAB_IMAGE_VERSION:-19.5.0-ee.0@sha256:f04c71f565601283971d6472dd466609f4679450526f39aab3e3dcd6d23dc0ec}}
   gitlab-runner: &gitlab-runner-image ${GITLAB_RUNNER_IMAGE_TAG:-gitlab/gitlab-runner:${GITLAB_RUNNER_IMAGE_VERSION:-ubuntu-v19.4.0@sha256:e859bcedae25987bdaf0aa79145eb5e50a0195d80a2eda7532e7a9841bb9d9a8}}
 
 networks:
