@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`gitlab/gitlab-ee:19.5.0-ee.0` moved to `gitlab/gitlab-ee:19.5.1-ee.0`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
+
+### Security
+
+- **`postgres:17` was rebuilt upstream**; the pin moved from `sha256:a63c1ea3f6a3…` to `sha256:b8faeff77126…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
 
 ## [1.8.7] - 2026-10-21
 
