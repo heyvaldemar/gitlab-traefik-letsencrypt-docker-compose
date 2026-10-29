@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.8.13] - 2026-10-29
+
 ### Changed
 
 - **`gitlab/gitlab-ee:19.5.1-ee.0` moved to `gitlab/gitlab-ee:19.5.3-ee.0`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
@@ -358,7 +362,8 @@ v1.2.0.
   reconfigure and database migrations, and requires the sign-in page to
   answer 200 through Traefik.
 
-[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.12...HEAD
+[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.13...HEAD
+[1.8.13]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.12...v1.8.13
 [1.8.12]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.11...v1.8.12
 [1.8.11]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.10...v1.8.11
 [1.8.10]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.9...v1.8.10
