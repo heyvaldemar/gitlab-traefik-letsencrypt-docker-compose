@@ -110,7 +110,7 @@ docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d 
 
 ## Features
 
-- **GitLab EE 19.4** (free tier features without a license): repositories, CI/CD, registry-ready, issues, merge requests.
+- **GitLab EE 19.6** (free tier features without a license): repositories, CI/CD, registry-ready, issues, merge requests.
 - **External PostgreSQL 17** with healthcheck, backupable and upgradable independently of the omnibus bundle (`postgresql['enable'] = false`).
 - **Traefik v3** with automatic HTTP→HTTPS redirect and Let's Encrypt TLS-ALPN certificate issuance.
 - **Git-over-SSH via a dedicated Traefik TCP entrypoint** on port 2222.
@@ -186,9 +186,11 @@ The identity is exact: this repository's `release-assets.yml`, on the tag you de
 
 ## Upgrading an existing deployment
 
-GitLab does not support skipping upgrade stops. Moving an existing instance from the previously pinned 17.7 to the current 19.4 requires walking GitLab's documented path (roughly: 17.7 → 17.11 → 18.x stops → 19.x, consult the [upgrade path tool](https://gitlab-com.gitlab.io/support/toolbox/upgrade-path/) for your exact route), and migrating the external database from PostgreSQL 14 to 17 (GitLab 18 requires 16+, GitLab 19 requires 17: dump on 14, restore into a fresh 17 volume, at the stop GitLab's docs prescribe).
+GitLab does not support skipping upgrade stops. Moving an existing instance from the previously pinned 17.7 to the current 19.6 requires walking GitLab's documented path (roughly: 17.7 → 17.11 → 18.x stops → 19.x, consult the [upgrade path tool](https://gitlab-com.gitlab.io/support/toolbox/upgrade-path/) for your exact route), and migrating the external database from PostgreSQL 14 to 17 (GitLab 18 requires 16+, GitLab 19 requires 17: dump on 14, restore into a fresh 17 volume, at the stop GitLab's docs prescribe).
 
 Practical route: back up everything (`gitlab-backup create`, `/etc/gitlab`, `pg_dump`), then step through the path by setting `GITLAB_IMAGE_TAG` (and `GITLAB_POSTGRES_IMAGE_TAG` at the DB stop) in `.env`, waiting for background migrations to finish at every stop (Admin → Monitoring → Background migrations). Once you reach the pinned versions, remove the overrides from `.env` to switch to repo-managed pins. Fresh deployments need none of this.
+
+**Within GitLab 19, 19.5 is a required stop.** Releases from v1.8.6 to v1.8.27 run GitLab 19.5; v1.9.0 and later run 19.6. A deployment still on GitLab 19.4 or older (v1.8.5 or earlier) has to run v1.8.27 first and let its background migrations finish (Admin → Monitoring → Background migrations shows nothing queued or running); GitLab 19.6 refuses to start on older data with "It is required to upgrade to the latest 19.5.x version first". From v1.9.0 on, `update.sh` refuses such a skip itself and names the release to stop at (exit 5). The `update.sh` of an older release cannot know about the stop: on v1.8.5 or earlier, run `git checkout v1.8.27` and `docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d` by hand, then `./update.sh` once the migrations are done.
 
 ## Unattended updates
 
@@ -206,7 +208,7 @@ Put it on a timer for hands-off minor/patch updates:
 17 5 * * *  /opt/gitlab-traefik-letsencrypt-docker-compose/update.sh >> /var/log/gitlab-update.log 2>&1
 ```
 
-The script refuses to cross a MAJOR template version on its own: majors are breaking by definition and their release notes exist to be read. After reading them, `./update.sh ‑‑allow-major` performs the jump. It also refuses to touch a checkout with local modifications: your customization belongs in `.env`, which updates never overwrite.
+The script refuses to cross a MAJOR template version on its own: majors are breaking by definition and their release notes exist to be read. After reading them, `./update.sh ‑‑allow-major` performs the jump. It refuses to skip one of GitLab's [required upgrade stops](https://docs.gitlab.com/update/upgrade_paths/) (19.2, 19.5, 19.8 and 19.11 in GitLab 19) and names the release to stop at first; a GitLab version you set in `.env` is yours to walk and is not checked. It also refuses to touch a checkout with local modifications: your customization belongs in `.env`, which updates never overwrite.
 
 This is deliberately a host-side script and not a container in the stack: an in-stack updater needs the Docker socket (root on the host) and turns "someone pushed to a repo" into "someone deployed to your machine" with no operator in the loop. A cron job under your own user updates only to tagged, CI-verified states and leaves the trust boundary where it was.
 

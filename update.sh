@@ -8,7 +8,8 @@
 # which is the guarantee a floating `latest` can never give. The script
 # refuses to cross a MAJOR template version on its own: majors are
 # breaking by definition (an application platform jump, a changed variable
-# contract) and their release notes exist to be read by a person.
+# contract) and their release notes exist to be read by a person. Nor does
+# it skip one of GitLab's required upgrade stops (see below).
 #
 # Run it from cron or a systemd timer for unattended minor/patch updates:
 #   17 5 * * *  /opt/gitlab-traefik-letsencrypt-docker-compose/update.sh >> /var/log/gitlab-update.log 2>&1
@@ -16,6 +17,9 @@
 # Flags:
 #   --dry-run      show what would happen, change nothing
 #   --allow-major  permit crossing a major version (you read the notes)
+#
+# Exit codes: 3 a major version, 4 a required variable not set, 5 a GitLab
+# required upgrade stop; nothing has moved in any of the three.
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -67,6 +71,41 @@ if [ "$new_major" != "$cur_major" ] && [ "$ALLOW_MAJOR" != "true" ]; then
   echo "read the release notes, then re-run with --allow-major:" >&2
   echo "  https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/releases/tag/$latest" >&2
   exit 3
+fi
+
+# GITLAB'S REQUIRED UPGRADE STOPS. GitLab has to stop at certain minor
+# versions, 19.2, 19.5, 19.8 and 19.11 in GitLab 19, and run their
+# background migrations to the end before it moves past them. An image
+# past a stop refuses to start on data older than it ("It is required to
+# upgrade to the latest 19.5.x version first"), which would leave the tree
+# on the new tag and GitLab down. The pinned default GitLab of each release
+# is compared; a GitLab version set in .env is yours to walk, and is not.
+# https://docs.gitlab.com/update/upgrade_paths/
+GITLAB_STOPS="19.2 19.5 19.8 19.11"
+gitlab_line() {  # TAG -> major.minor of the GitLab image that release pins
+  git show "$1:$COMPOSE_FILE" 2>/dev/null \
+    | grep -oE 'gitlab/gitlab-ee:\$\{GITLAB_IMAGE_VERSION:-[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+$' | head -1 || true
+}
+line_num() { echo $(( ${1%%.*} * 1000 + ${1#*.} )); }
+cur_gl="$(gitlab_line HEAD)"; new_gl="$(gitlab_line "$latest")"
+if [ -n "$cur_gl" ] && [ -n "$new_gl" ] && ! grep -qE '^GITLAB_IMAGE_(TAG|VERSION)=.' .env 2>/dev/null; then
+  for stop in $GITLAB_STOPS; do
+    if [ "$(line_num "$cur_gl")" -lt "$(line_num "$stop")" ] && [ "$(line_num "$new_gl")" -gt "$(line_num "$stop")" ]; then
+      stop_tag=""
+      for t in $(git tag -l 'v*' --sort=-v:refname); do
+        if [ "$(gitlab_line "$t")" = "$stop" ]; then stop_tag="$t"; break; fi
+      done
+      echo "refusing to skip GitLab's required upgrade stop $stop: $current runs GitLab $cur_gl, $latest runs GitLab $new_gl" >&2
+      if [ -n "$stop_tag" ]; then
+        echo "update to $stop_tag (GitLab $stop) first, nothing else changes:" >&2
+        echo "  git checkout -q $stop_tag && docker compose -f $COMPOSE_FILE -p $PROJECT up -d --remove-orphans" >&2
+        echo "then wait until Admin > Monitoring > Background migrations has nothing queued or running, and run this again" >&2
+      else
+        echo "no release of this template pins GitLab $stop: see https://docs.gitlab.com/update/upgrade_paths/" >&2
+      fi
+      exit 5
+    fi
+  done
 fi
 
 # NEW VARIABLES SINCE YOUR VERSION. An update can add a required variable,
