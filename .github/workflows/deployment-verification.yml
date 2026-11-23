@@ -41,6 +41,12 @@ jobs:
             rhysd/actionlint:1.7.12 \
             -color
 
+      - name: update.sh refuses to skip a GitLab required upgrade stop
+        # A sandbox origin whose releases pin GitLab on both sides of a stop,
+        # `update.sh --dry-run` from each side; every refusal is also run
+        # with the check cut out, and must then go through.
+        run: bash tests/update-stops.sh
+
   scan-trivy:
     name: Scan pinned upstream image with Trivy
     runs-on: ubuntu-latest

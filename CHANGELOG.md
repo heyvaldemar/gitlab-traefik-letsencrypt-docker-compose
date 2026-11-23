@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Before upgrading
+
+- **GitLab 19.5 is a required upgrade stop.** From v1.8.6 to v1.8.27 this template ran GitLab 19.5; this release runs 19.6.1. On v1.8.5 or earlier (GitLab 19.4 or older), run v1.8.27 first and wait until Admin → Monitoring → Background migrations has nothing queued or running: GitLab 19.6 refuses to start on older data ("It is required to upgrade to the latest 19.5.x version first", the image's own `gitlab-ctl upgrade-check`). The `update.sh` of those releases does not know this, so take that step by hand: `git checkout v1.8.27`, `docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d`, and `./update.sh` once the migrations are done. From v1.8.6 on, nothing to do. Back up first as always (`gitlab-backup.sh`, which also keeps `/etc/gitlab`).
+
+### Changed
+
+- **GitLab 19.5.8 → 19.6.1** (`gitlab/gitlab-ee:19.6.1-ee.0`). Read by hand: the [19.6 upgrade notes](https://docs.gitlab.com/update/versions/gitlab_19_changes/#upgrade-to-196), the [19.6 release notes](https://docs.gitlab.com/releases/19/gitlab-19-6-released/), the [19.6.1 patch release](https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-6-1-released/) and `CHANGELOG.md` at `v19.6.1-ee`. What they mean here:
+  - The bundled NGINX moves from 1.31.4 to 1.31.7 (five CVEs) and now rejects a zero-size `*_buffer_size` and checks `proxy_ssl_verify` certificates by IP SAN. This template sets neither: Traefik terminates TLS and GitLab's NGINX listens on plain HTTP behind it.
+  - New and tighter rate limits are on by default (repository blame 400/min per user and project, comment creation, member removal, a 900-second limit on evaluating job rules, 10 MiB of pipeline variables). An API client that worked before can now get `429 Too Many Requests`; the notes name each setting and how to change it.
+  - Geo, the OpenBao policy for Secrets Manager and the multi-node Service Ping secret do not apply to this single-node, Geo-less stack; on one node the Service Ping secret is generated on the first reconfigure.
+  - No new required stop (GitLab 19's are 19.2, 19.5, 19.8, 19.11), no new PostgreSQL floor (GitLab 19 needs 17, which the stack runs), no removed setting this compose file uses.
+  - 19.6.1 is GitLab's critical patch for Ruby's CVE-2026-132825 (a heap overflow in string case conversion, rated Critical by Ruby). The same fix came in 19.5.8, which v1.8.27 already runs, so a deployment on v1.8.27 is not exposed while it waits for this release.
+
+### Added
+
+- **`update.sh` refuses to skip one of GitLab's required upgrade stops.** It compares the GitLab version the deployed release pins with the one the newest release pins; when a stop lies between them (19.2, 19.5, 19.8 or 19.11 in GitLab 19) it exits 5 before anything moves and names the newest release that runs the stop, with the command to go there. A GitLab version set in `.env` is left to whoever set it. `tests/update-stops.sh` runs it for real against a sandbox origin, each refusal also with the check cut out, in the deploy job.
 
 ## [1.8.27] - 2026-11-21
 
