@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.9.0] - 2026-11-23
+
 ### Before upgrading
 
 - **GitLab 19.5 is a required upgrade stop.** From v1.8.6 to v1.8.27 this template ran GitLab 19.5; this release runs 19.6.1. On v1.8.5 or earlier (GitLab 19.4 or older), run v1.8.27 first and wait until Admin → Monitoring → Background migrations has nothing queued or running: GitLab 19.6 refuses to start on older data ("It is required to upgrade to the latest 19.5.x version first", the image's own `gitlab-ctl upgrade-check`). The `update.sh` of those releases does not know this, so take that step by hand: `git checkout v1.8.27`, `docker compose -f gitlab-traefik-letsencrypt-docker-compose.yml -p gitlab up -d`, and `./update.sh` once the migrations are done. From v1.8.6 on, nothing to do. Back up first as always (`gitlab-backup.sh`, which also keeps `/etc/gitlab`).
@@ -469,7 +473,8 @@ v1.2.0.
   reconfigure and database migrations, and requires the sign-in page to
   answer 200 through Traefik.
 
-[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.27...HEAD
+[Unreleased]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.27...v1.9.0
 [1.8.27]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.26...v1.8.27
 [1.8.26]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.25...v1.8.26
 [1.8.25]: https://github.com/heyvaldemar/gitlab-traefik-letsencrypt-docker-compose/compare/v1.8.24...v1.8.25
