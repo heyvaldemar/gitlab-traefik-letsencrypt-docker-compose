@@ -7,7 +7,7 @@
 # the pins from these lines — this block is the single source of truth.
 x-images:
   traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:649c6476d4c499de84572bc60f5ecf75e98e75a5b8f8a8a72010c836d8ee9f95}}
-  postgres: &postgres-image ${GITLAB_POSTGRES_IMAGE_TAG:-postgres:${GITLAB_POSTGRES_IMAGE_VERSION:-17@sha256:b60e90042aa6b8dbecd58e224b3e36114dbf8ad754465264c2476ad58a86e45c}}
+  postgres: &postgres-image ${GITLAB_POSTGRES_IMAGE_TAG:-postgres:${GITLAB_POSTGRES_IMAGE_VERSION:-17@sha256:87c8b42f423b45d5247e6aa8fdb2e7762fec164c68a50fe3eb07e7bfcaf4dbcf}}
   gitlab: &gitlab-image ${GITLAB_IMAGE_TAG:-gitlab/gitlab-ee:${GITLAB_IMAGE_VERSION:-19.6.1-ee.0@sha256:3ea1e051cad5ed3cd4d8cee955414a76a85e9e7d124cc23bbe0a06e4fb3475d7}}
   gitlab-runner: &gitlab-runner-image ${GITLAB_RUNNER_IMAGE_TAG:-gitlab/gitlab-runner:${GITLAB_RUNNER_IMAGE_VERSION:-ubuntu-v19.4.0@sha256:e859bcedae25987bdaf0aa79145eb5e50a0195d80a2eda7532e7a9841bb9d9a8}}
 
